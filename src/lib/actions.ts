@@ -1,45 +1,50 @@
+import { supabase } from "./supabase";
 import { mockCafes, type Cafe } from "./mockData";
-// import { supabase } from "./supabase";
-
-// ─────────────────────────────────────────────────────────────
-// For MVP: uses mock data. Uncomment Supabase calls when ready.
-// ─────────────────────────────────────────────────────────────
 
 /**
- * Fetch cafes, optionally filtered by category.
- *
- * When Supabase is connected, replace the mock implementation with:
- * ```ts
- * const query = supabase.from("cafes").select("*");
- * if (category && category !== "All") {
- *   query.eq("category", category);
- * }
- * const { data, error } = await query;
- * if (error) throw error;
- * return data as Cafe[];
- * ```
+ * Fetch cafes from Supabase, with mock data fallback.
  */
 export async function getCafesByCategory(
   category?: string
 ): Promise<Cafe[]> {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  try {
+    let query = supabase
+      .from("cafes")
+      .select("id, name, description, category, image_url, address, district, rating, total_ratings, opening_hours, phone")
+      .order("rating", { ascending: false, nullsFirst: false });
 
-  if (!category || category === "All") {
-    return mockCafes;
+    if (category && category !== "All") {
+      query = query.eq("category", category);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Supabase error:", error.message);
+      return fallbackToMock(category);
+    }
+
+    if (!data || data.length === 0) {
+      return fallbackToMock(category);
+    }
+
+    return data as Cafe[];
+  } catch {
+    return fallbackToMock(category);
   }
+}
 
-  return mockCafes.filter((cafe) => cafe.category === category);
+function fallbackToMock(category?: string): Cafe[] {
+  if (!category || category === "All") return mockCafes;
+  return mockCafes.filter((c) => c.category === category);
 }
 
 /**
- * Find cafes with a similar "vibe" using vector similarity.
+ * Find cafes with a similar "vibe".
  *
- * In production, this calls a Supabase RPC function that uses
- * pgvector's cosine distance operator (`<=>`) to rank cafes
- * by embedding similarity.
+ * Current: returns cafes from the same category.
+ * Phase 2: will use pgvector cosine similarity via match_cafes RPC.
  *
- * Example Supabase RPC (create in SQL Editor):
  * ```sql
  * CREATE OR REPLACE FUNCTION match_cafes(
  *   query_embedding vector(1536),
@@ -47,51 +52,52 @@ export async function getCafesByCategory(
  *   match_count int DEFAULT 5
  * )
  * RETURNS TABLE (
- *   id uuid,
- *   name text,
- *   description text,
- *   category text,
- *   image_url text,
- *   similarity float
+ *   id uuid, name text, description text,
+ *   category text, image_url text, similarity float
  * )
- * LANGUAGE plpgsql
- * AS $$
+ * LANGUAGE plpgsql AS $$
  * BEGIN
  *   RETURN QUERY
- *   SELECT
- *     cafes.id,
- *     cafes.name,
- *     cafes.description,
- *     cafes.category,
- *     cafes.image_url,
- *     1 - (cafes.embedding <=> query_embedding) AS similarity
+ *   SELECT cafes.id, cafes.name, cafes.description,
+ *          cafes.category, cafes.image_url,
+ *          1 - (cafes.embedding <=> query_embedding) AS similarity
  *   FROM cafes
  *   WHERE 1 - (cafes.embedding <=> query_embedding) > match_threshold
  *   ORDER BY cafes.embedding <=> query_embedding
  *   LIMIT match_count;
- * END;
- * $$;
- * ```
- *
- * Then call it with:
- * ```ts
- * const { data, error } = await supabase
- *   .rpc("match_cafes", {
- *     query_embedding: targetCafeEmbedding,
- *     match_threshold: 0.78,
- *     match_count: 5,
- *   });
+ * END; $$;
  * ```
  */
 export async function getSimilarCafes(cafeId: string): Promise<Cafe[]> {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  try {
+    // Get source cafe's category
+    const { data: source } = await supabase
+      .from("cafes")
+      .select("category")
+      .eq("id", cafeId)
+      .single();
 
-  // Mock: return cafes from the same category (excluding the source cafe)
-  const sourceCafe = mockCafes.find((c) => c.id === cafeId);
-  if (!sourceCafe) return [];
+    if (!source) return [];
 
-  return mockCafes.filter(
-    (c) => c.id !== cafeId && c.category === sourceCafe.category
-  );
+    const { data, error } = await supabase
+      .from("cafes")
+      .select("id, name, description, category, image_url, address, rating")
+      .eq("category", source.category)
+      .neq("id", cafeId)
+      .order("rating", { ascending: false, nullsFirst: false })
+      .limit(5);
+
+    if (error || !data) {
+      // Fallback to mock
+      const sourceMock = mockCafes.find((c) => c.id === cafeId);
+      if (!sourceMock) return [];
+      return mockCafes.filter((c) => c.id !== cafeId && c.category === sourceMock.category);
+    }
+
+    return data as Cafe[];
+  } catch {
+    const sourceMock = mockCafes.find((c) => c.id === cafeId);
+    if (!sourceMock) return [];
+    return mockCafes.filter((c) => c.id !== cafeId && c.category === sourceMock.category);
+  }
 }

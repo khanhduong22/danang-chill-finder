@@ -4,6 +4,12 @@ export interface Cafe {
   description: string;
   category: "Học bài" | "Hẹn hò" | "Chill";
   image_url: string;
+  address?: string;
+  district?: string;
+  rating?: number;
+  total_ratings?: number;
+  opening_hours?: Record<string, unknown>;
+  phone?: string;
 }
 
 export const CATEGORIES = ["All", "Học bài", "Hẹn hò", "Chill"] as const;

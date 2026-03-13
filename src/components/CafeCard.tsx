@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { Cafe } from "@/lib/mockData";
-import { BookOpen, Coffee, Heart, Sparkles } from "lucide-react";
+import { BookOpen, Coffee, Heart, MapPin, Sparkles, Star } from "lucide-react";
 
 const categoryStyles: Record<
   string,
@@ -76,6 +76,25 @@ export function CafeCard({ cafe, onFindSimilar, isLoading }: CafeCardProps) {
         <CardDescription className="line-clamp-3 text-sm leading-relaxed">
           {cafe.description}
         </CardDescription>
+        {(cafe.rating || cafe.address) && (
+          <div className="mt-2 flex flex-col gap-1">
+            {cafe.rating && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                <span className="font-medium text-amber-300">{cafe.rating}</span>
+                {cafe.total_ratings && (
+                  <span>({cafe.total_ratings} đánh giá)</span>
+                )}
+              </div>
+            )}
+            {cafe.address && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="truncate">{cafe.address}</span>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
 
       <CardFooter>
