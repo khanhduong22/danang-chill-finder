@@ -3,6 +3,8 @@
 ### AI-Powered Spatial Cafe Recommendation Engine for Da Nang, Vietnam
 *Built with Next.js 16, Supabase, PostgreSQL + pgvector, and Shadcn UI.*
 
+**Live Demo**: [danang-chill-finder.vercel.app](https://danang-chill-finder.vercel.app)
+
 ---
 
 ## 🚀 Overview
